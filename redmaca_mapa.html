@@ -1,0 +1,185 @@
+
+<html lang="en">
+<head>	
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	
+	<title>Red MACA</title>
+	
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+	<script type="text/javascript" src="geoJson/mercadillosdelagricultor.js"></script>
+	<script type="text/javascript" src="geoJson/limitesmunicipalescanarias.js"></script>
+
+
+	<style>
+		#map 
+        {
+            height: 600px;
+            width: 1200px;
+        }	
+        #gps {
+			position: absolute;
+			top: 25;
+			left: 25;
+			padding: 10px;			
+			z-index:999;
+		}
+	</style>
+
+	
+</head>
+<body>
+	
+<div id="map"></div>
+<button type="button" id="gps" onclick="localizame() "style="border: none; background: none; padding: 0; position: absolute; top: 35px; left: 70px; z-index: 999; cursor: pointer;">
+  <img src="images/localizate-02.png" alt="Obtener GPS" width="100">
+</button>
+
+<script>
+
+const map = L.map('map').setView([28.30, -16.40], 9.70);
+const tileLayer = L.tileLayer('http://services.arcgisonline.com/arcgis/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}');
+
+var osmLayer = new L.TileLayer('http://services.arcgisonline.com/arcgis/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}');
+	var ESRIWorldStreetMapLayer = new L.TileLayer('http://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}');
+	var ESRIWorldTopoMapLayer = new L.TileLayer('http://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}');
+	var ESRINatGeoMapLayer = new L.TileLayer('http://server.arcgisonline.com/ArcGIS/rest/services/NatGeo_World_Map/MapServer/tile/{z}/{y}/{x}');
+			
+	var baseLayers = {
+		'OpenStreetMap': osmLayer,
+		'ESRI World Street Map': ESRIWorldStreetMapLayer,
+		'ESRI World Topo Map': ESRIWorldTopoMapLayer,  
+		'ESRI Nat Geo Map': ESRINatGeoMapLayer,     
+	};
+
+		
+	var layerControl = new L.control.layers(baseLayers, overlays);
+	var scaleControl = new L.control.scale({'imperial': false});
+
+	map.addControl(layerControl);
+	map.addControl(scaleControl);
+	map.addLayer(osmLayer);
+
+    map.addLayer(tileLayer);
+
+// CAPA MERCADILLOS DEL AGRICULTOR
+
+map.addLayer(tileLayer);
+	
+	var iconoMercadillos = L.icon({
+		iconUrl: 'images/mercadillos.png',
+		iconSize: [30, 30], 
+		iconAnchor: [16, 16], 
+		popupAnchor: [0, 0]  
+	})
+
+	function crearPopupMercadillosdelAgricultor(feature) {
+		var texto = "<b></b>";
+			
+		if (feature.properties.actividad_tipo === "mercadillo de artesanía") {
+			texto = texto + "<p><b>Mercadillo de Artesanía | " + feature.properties.municipio_nombre + "</b></p>";
+		};
+		if (feature.properties.actividad_tipo === "agromercado") {
+			texto = texto + "<p><b>Agromercado | " + feature.properties.municipio_nombre + "</b></p>";
+		};
+		if (feature.properties.actividad_tipo === "mercadillo del agricultor") {
+			texto = texto + "<p><b>Mercadillo del Agricultor | " + feature.properties.municipio_nombre + "</b></p>";
+		};
+		texto = texto + " </p><p>✱✱✱</p>";
+		if (feature.properties.dirección) {
+			texto = texto + "<p>" + feature.properties.dirección + "";
+		if (feature.properties.dirección_link) {
+			texto = texto + ' <a href="' + feature.properties.dirección_link + '" target="_blank">↗︎ Abrir en <i>Google Maps</i></a>';
+		};
+		texto += "</p>";
+		};
+		if (feature.properties.horario) {
+			texto = texto + "<p>" + feature.properties.horario + "</p>";
+		};
+		if (feature.properties.telefono) {
+			texto = texto + "<p>" + feature.properties.telefono + "</p>";
+		};
+		if (feature.properties.email) {
+			texto = texto + "<p>" + feature.properties.email + "</p>";
+		};
+		if (feature.properties.web) {
+			texto = texto + ' <a href="' + feature.properties.web + '" target="_blank">↗︎ Visita la página web</a>';
+		};
+		return texto;
+		}
+
+
+	var marcadormercadillo = L.geoJson(mercadillosdelagricultor, {
+    pointToLayer: function (feature, latlng) {
+        var marcador;
+        if (feature.properties.situación == "abierto") {
+            marcador = L.marker(latlng, {
+                title: feature.properties.nombre,
+                icon: iconoMercadillos
+            });
+            var textoPopup = crearPopupMercadillosdelAgricultor(feature);
+            marcador.bindPopup(textoPopup);
+        }
+        return marcador;
+    }
+});
+	
+
+
+// CAPA LÍMITES MUNICIPALES
+
+	var limitesmunicipalescanarias = L.geoJson(limitesmunicipalescanarias, {
+    onEachFeature: function(feature, layer){
+    },
+    style: function (feature) {
+        return {                
+            border: true,
+            color: "#052e5a", 
+            weight: 1.5, 
+            opacity: 1, 
+            fillOpacity: 0
+        };
+		
+    } 
+	   
+	}).addTo(map)
+
+// GPS 
+
+var iconoGPS = L.icon({
+    iconUrl: 'images/usuario.png',
+	iconSize: [100, 100],
+    iconAnchor: [16, 16],
+    popupAnchor: [0, 0]
+});
+
+function localizacionEncontrada(e) { 
+    var radius = e.accuracy / 2; 
+    var marker = L.marker (e.latlng, { icon: iconoGPS }); 
+    marker.addTo(map);
+}
+
+	function errorEnLocalizacion(e) { 
+		alert(e.message);
+	} 
+
+	function localizame() {
+		map.locate({setView: true, maxZoom: 16});
+	}
+
+
+map.addLayer(marcadormercadillo);
+
+var overlays = {
+  "Mercadillos del Agricultor": marcadormercadillo,
+  "Límites municipales": limitesmunicipalescanarias
+};
+
+	map.on('locationfound', localizacionEncontrada);
+	map.on('locationerror', errorEnLocalizacion);
+
+</script>
+</body>
+</html>
